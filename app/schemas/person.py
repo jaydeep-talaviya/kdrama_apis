@@ -12,4 +12,3 @@ class PersonSchema(BaseCommon):
 class TotalPersonSchema(BaseModel):
     data: List[PersonSchema]
     total_count: int
-

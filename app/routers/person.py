@@ -41,19 +41,20 @@ def get_all_persons(limit: int = Query(10, gt=0),
 
 
 def get_structure_for_person(collection_name,extra_infos,single_person_id=None):
+    collection = db[collection_name]
+
     for extra_info in extra_infos:
         #movies
-        movie_drama = db[collection_name].find_one({'_id':extra_info[collection_name+'_id']},{"_id":0,collection_name+'_link':0,"last_paragraph":0})
-        movie_drama['genres'] = list(db.genre.find({'_id':{"$in":extra_info['genres']}},{'_id':0}))
-        movie_drama[collection_name+'_id'] = str(extra_info[collection_name+'_id'])
+        movie_drama = collection.find_one({'_id':extra_info[collection_name+'_id']},{"_id":0,collection_name+'_link':0,"last_paragraph":0,'tv_channel_id':0})
+        extra_info['genres'] = list(db.genre.find({'_id':{"$in":extra_info['genres']}},{'_id':0}))
+        extra_info[collection_name+'_id'] = str(extra_info[collection_name+'_id'])
         if single_person_id:
             movie_drama['name_in_'+collection_name] = db.cast_of_drama.find_one({'$and':[{'cast_id':single_person_id},{'_id':{'$in':extra_info['casts_ids']+extra_info['other_cast_info']}}]},{'cast_name_in_drama':1,"extended_cast":1,"_id":0})
             del extra_info['casts_ids']
             del extra_info['other_cast_info']
-        del extra_info[collection_name+'_id']
-        del extra_info['genres']
-     
+
         extra_info[collection_name] = movie_drama
+
     return extra_infos
 
 @person_router.get("/{person_id}")
@@ -61,18 +62,22 @@ def get_person_by_id(person_id:str):
     single_person = db.person.find_one({'_id':ObjectId(person_id)})
     if not single_person:
         raise HTTPException(status_code=404, detail="No Actor/Actress found")
-    directed_by_movies = list(db.movie_extra_info.find({'directed_bys':{"$in":[ObjectId(person_id)]}},{"_id":0,"images":0,"directed_bys":0,'written_bys':0,"casts_ids":0,"other_cast_info":0}))
-    directed_by_dramas = list(db.drama_extra_info.find({'directed_bys':{"$in":[ObjectId(person_id)]}},{"_id":0,"images":0,"directed_bys":0,'written_bys':0,"casts_ids":0,"other_cast_info":0}))
     
-    written_of_movies = list(db.movie_extra_info.find({'written_bys':{"$in":[ObjectId(person_id)]}},{"_id":0,"images":0,"directed_bys":0,'written_bys':0,"casts_ids":0,"other_cast_info":0}))
-    written_of_dramas = list(db.drama_extra_info.find({'written_bys':{"$in":[ObjectId(person_id)]}},{"_id":0,"images":0,"directed_bys":0,'written_bys':0,"casts_ids":0,"other_cast_info":0}))
+    movie_fields = {"movie_id":1,"genres":1,"_id":0}
+    drama_fields = {"drama_id":1,"genres":1,"_id":0}
+
+    directed_by_movies = list(db.movie_extra_info.find({'directed_bys':{"$in":[ObjectId(person_id)]}},movie_fields))
+    directed_by_dramas = list(db.drama_extra_info.find({'directed_bys':{"$in":[ObjectId(person_id)]}},drama_fields))
+    
+    written_of_movies = list(db.movie_extra_info.find({'written_bys':{"$in":[ObjectId(person_id)]}},movie_fields))
+    written_of_dramas = list(db.drama_extra_info.find({'written_bys':{"$in":[ObjectId(person_id)]}},drama_fields))
     
     # cast of drama
     cast_of_drama_ids =  list(db.cast_of_drama.find({'cast_id':{"$in":[ObjectId(person_id)]}},{'_id':1}))
 
     cast_of_drama_ids = [cast_of_drama_id['_id'] for cast_of_drama_id in cast_of_drama_ids]
-    cast_of_movies = list(db.movie_extra_info.find({'$or':[{'casts_ids':{"$in":cast_of_drama_ids}},{'other_cast_info':{"$in":cast_of_drama_ids}}]},{"_id":0,"images":0,"directed_bys":0,'written_bys':0}))
-    cast_of_dramas = list(db.drama_extra_info.find({'$or':[{'casts_ids':{"$in":cast_of_drama_ids}},{'other_cast_info':{"$in":cast_of_drama_ids}}]},{"_id":0,"images":0,"directed_bys":0,'written_bys':0}))
+    cast_of_movies = list(db.movie_extra_info.find({'$or':[{'casts_ids':{"$in":cast_of_drama_ids}},{'other_cast_info':{"$in":cast_of_drama_ids}}]},{**movie_fields,"casts_ids":1,"other_cast_info":1}))
+    cast_of_dramas = list(db.drama_extra_info.find({'$or':[{'casts_ids':{"$in":cast_of_drama_ids}},{'other_cast_info':{"$in":cast_of_drama_ids}}]},{**drama_fields,"casts_ids":1,"other_cast_info":1}))
 
 
     directed_by_movies = get_structure_for_person('movie',directed_by_movies)
@@ -90,7 +95,7 @@ def get_person_by_id(person_id:str):
     single_person['written_of_dramas']=written_of_dramas
     single_person['cast_of_movies']=cast_of_movies
     single_person['cast_of_dramas']=cast_of_dramas
-
+    print(">>>>>>>single_person",single_person)
         
     if not single_person:
         raise HTTPException(status_code=404, detail="No Actor/Actress found")

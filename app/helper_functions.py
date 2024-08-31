@@ -194,6 +194,7 @@ def get_extra_cast_info(base_url,other_casts_link):
     extra_cast = BeautifulSoup(html_str, 'html.parser')
     all_casts=extra_cast.find('ul',attrs={'class':'list cast'})
     all_casts_list=all_casts.find_all('div',attrs={'class':'work_info_short'})
+    all_casts_list = list(filter(lambda x:x.find('a'),all_casts_list))
     all_cast_info=[]
     for single_cast in all_casts_list:
         cast_name=''
@@ -301,6 +302,8 @@ def get_single_drama_info(base_url,single_drama_link):
             try:
                 main_casts=cast_contents.find('ul',{'class':'list cast'})
                 all_casts_div=main_casts.find_all('div',{'class':'work_info_short'})
+                all_casts_div = list(filter(lambda x:x.find('a'),all_casts_div))
+
             except:
                 pass
 
@@ -430,7 +433,8 @@ def get_single_movie_info(base_url,single_movie_link):
             all_casts_div=[]
             try:
                 main_casts=cast_contents.find('ul',{'class':'list cast'})
-                all_casts_div=main_casts.find_all('div',{'class':'work_info_short'})
+                all_casts_div = main_casts.find_all('div',{'class':'work_info_short'})
+                all_casts_div = list(filter(lambda x:x.find('a'),all_casts_div))
             except:
                 pass
 
@@ -490,4 +494,4 @@ def get_single_movie_info(base_url,single_movie_link):
         else:
             print("Movie already exist",movie_name)
     except Exception as e:
-        print("got some error",e)
+        print("got some error",e,"Movie Name",single_movie_link)
