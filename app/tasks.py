@@ -105,7 +105,7 @@ def get_new_upcomming_kdrama(*args, **kwargs):
 
 @celery_app.task(name = "get_all_kdrama_once")
 def get_all_kdrama_once(*args, **kwargs):
-    dynamic_url = 'https://www.hancinema.net/upcoming-korean-dramas.php'
+    dynamic_url = 'https://www.hancinema.net/all_korean_dramas.php'
     base_url = 'https://www.hancinema.net'
     
     # Fetch all K-drama links

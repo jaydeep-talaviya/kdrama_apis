@@ -1,14 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional,List
-from bson import ObjectId
+from app.schemas.common import BaseCommon
 
-
-class BaseCommon(BaseModel):
-    id: Optional[str] = Field(None, alias="_id")
-    class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
 
 class GenresSchema(BaseCommon):
     genre_name: str

@@ -1,0 +1,7 @@
+attrs==22.1.0
+beautifulsoup4==4.11.1
+bs4==0.0.1
+nest-asyncio==1.5.6
+networkx==2.8.8
+requests==2.28.1
+requests-html==0.10.0

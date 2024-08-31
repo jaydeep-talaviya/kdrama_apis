@@ -157,9 +157,10 @@ def get_main_cast_info(cast_actors_names,cast_actors_names_in_drama,cast_actors_
         all_casts=[]
         for j in range(0,len(cast_actors_names)):
             single_cast_id= get_or_create_person(cast_actors_names[j],cast_actors_links[j])
-            old_cast= db.cast_of_drama.find_one({'cast_id':single_cast_id,"cast_name_in_drama":cast_actors_names_in_drama[j]})
+            name_in_drama = cast_actors_names_in_drama[j] if cast_actors_names_in_drama[j] !="\n📰 News\n🎥 Credits 📷 Pics\n" else ""
+            old_cast= db.cast_of_drama.find_one({'cast_id':single_cast_id,"cast_name_in_drama":name_in_drama})
             if not old_cast:
-                castofdrama=db.cast_of_drama.insert_one({'cast_id':single_cast_id,"cast_name_in_drama":cast_actors_names_in_drama[j],"extended_cast":False})
+                castofdrama=db.cast_of_drama.insert_one({'cast_id':single_cast_id,"cast_name_in_drama":name_in_drama,"extended_cast":False})
                 all_casts.append(castofdrama.inserted_id)
             else:
                 all_casts.append(old_cast["_id"])
@@ -172,10 +173,11 @@ def add_single_cast(cast_dict,extended):
     cast_role_for_drama=cast_dict['cast_role_for_drama']
     if cast_name !='' or cast_role_for_drama !='':        
         single_cast_id=get_or_create_person(cast_name,cast_dict['cast_link'])
-        old_castof_drama=db.cast_of_drama.find_one({"cast_id":single_cast_id,"cast_name_in_drama":cast_role_for_drama})
+        name_in_drama = cast_role_for_drama if cast_role_for_drama !="\n📰 News\n🎥 Credits 📷 Pics\n" else ""
+        old_castof_drama=db.cast_of_drama.find_one({"cast_id":single_cast_id,"cast_name_in_drama":name_in_drama})
 
         if not old_castof_drama:
-            castofdrama=db.cast_of_drama.insert_one({"cast_id":single_cast_id,"cast_name_in_drama":cast_role_for_drama,"extended_cast":extended})
+            castofdrama=db.cast_of_drama.insert_one({"cast_id":single_cast_id,"cast_name_in_drama":name_in_drama,"extended_cast":extended})
             return castofdrama.inserted_id
         else:
             return old_castof_drama["_id"]
@@ -283,13 +285,14 @@ def get_single_drama_info(base_url,single_drama_link):
             if len(airing_dates.split("~"))>1:
                 airing_dates_end=airing_dates.split("~")[1]
             # Paragraph synopsis
-            last_paragraph=''
+            last_paragraph=[]
             try:
                 last_paragraph = list(filter(lambda x: x.find('strong') is None or (
                     x.find('strong') is not None and x.find('strong').text not in ['Directed by', 'Written by',
-                                                                               'Airing dates',
-                                                                               'TV Channel/Platform:']),
-                                     synopsis_div.find_all('p')))[0]
+                                                                                    'Airing dates',
+                                                                                    'TV Channel/Platform:']),
+                                    synopsis_div.find_all('p')))
+                last_paragraph = list(map(str, last_paragraph))
             except Exception as e:
                 pass
             #main_casts
@@ -332,9 +335,9 @@ def get_single_drama_info(base_url,single_drama_link):
 
     #       create new drama from here
             drama=db.drama.insert_one({"drama_name":drama_name,"image_url":main_theme_img,
-                                       "other_names":other_names,"drama_link":str(base_url+'/'+single_drama_link),
-                                      "tv_channel_id":tv_channel['_id'] if tv_channel else None,"airing_dates_start":airing_dates_start,
-                                      "airing_dates_end":airing_dates_end,"last_paragraph":str(last_paragraph)})
+                                        "other_names":other_names,"drama_link":str(base_url+'/'+single_drama_link),
+                                        "tv_channel_id":tv_channel['_id'] if tv_channel else None,"airing_dates_start":airing_dates_start,
+                                        "airing_dates_end":airing_dates_end,"last_paragraph":"".join(last_paragraph)})
 
             drama_extra_info={"drama_id":drama.inserted_id}
             if genres_list:
@@ -412,13 +415,14 @@ def get_single_movie_info(base_url,single_movie_link):
                 pass
 
             # Paragraph synopsis
-            last_paragraph=''
+            last_paragraph=[]
             try:
                 last_paragraph = list(filter(lambda x: x.find('strong') is None or (
                     x.find('strong') is not None and x.find('strong').text not in ['Directed by', 'Written by',
-                                                                                   'Airing dates',
-                                                                                   'TV Channel/Platform:']),
-                                     synopsis_div.find_all('p')))[-1]
+                                                                                    'Airing dates',
+                                                                                    'TV Channel/Platform:']),
+                                                                                    synopsis_div.find_all('p')))
+                last_paragraph = list(map(str, last_paragraph))
             except Exception as e:
                 pass
             #main_casts
@@ -464,9 +468,9 @@ def get_single_movie_info(base_url,single_movie_link):
 
             movie = db.movie.insert_one({'movie_name':movie_name,'image_url':main_theme_img,
                              "movie_link":str(base_url+'/'+single_movie_link),"other_names":other_names,
-                             "airing_date":airing_date,"duration":duration,"last_paragraph":str(last_paragraph)})
+                             "airing_date":airing_date,"duration":duration,"last_paragraph":"".join(last_paragraph)})
 
-            movie_extra_info={}
+            movie_extra_info={"movie_id":movie.inserted_id}
             if genres_list:
                 genres = db.genre.find({"genre_name": { "$in": genres_list}},{"_id":1})
                 movie_extra_info["genres"]=[i['_id'] for i in genres]
