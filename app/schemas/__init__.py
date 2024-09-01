@@ -1,2 +1,3 @@
-from .drama import (DramaList,DramaSchema,
-                    GenresSchema,CompaniesSchema,TotalGenresSchema,TotalCompaniesSchema)
+from .drama import *
+from .movie import *
+from .person import *

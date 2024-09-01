@@ -64,7 +64,10 @@ def get_person_links_all(url, main_search_link, previous_date=None, today=None):
         # Function to process each link tag
         def process_single_link_tag(single_link_tag):
             try:
-                current_datetime = datetime.strptime(single_link_tag.find('a').find('strong').text, '%Y/%m/%d')
+                current_datetime=None
+                if previous_date and today:
+                    current_datetime = datetime.strptime(single_link_tag.find('a').find('strong').text, '%Y/%m/%d')
+
                 if (not previous_date and not today) or (previous_date and current_datetime >= previous_date and current_datetime <= today):
                     return single_link_tag.find('a').attrs['href']
             except Exception as e:
@@ -86,6 +89,8 @@ def get_person_links_all(url, main_search_link, previous_date=None, today=None):
         page_nxt_btn = main_content_of_links.find_next('nav')
         next_page_links = page_nxt_btn.find_all('a', string="Next ›") if page_nxt_btn else []
         next_link = url + next_page_links[0].attrs['href'] if next_page_links else None
+        if next_link:
+            next_link = next_link.replace("template.php?craft[0]=acteur","all_korean_actors_actresses.php?").replace("&","")
 
         # To avoid an infinite loop, break if no new links were added in this iteration
         if not links_from_genre:

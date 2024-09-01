@@ -56,7 +56,7 @@ def get_new_person(*args, **kwargs):
 
 @celery_app.task(name = "get_all_person_once")  # do run manually
 def get_all_person_once(*args, **kwargs):
-    dynamic_url='https://www.hancinema.net/search_korean_people.php'
+    dynamic_url='https://www.hancinema.net/all_korean_actors_actresses.php'
     base_url='https://www.hancinema.net'
     
     get_all_links=get_person_links_all(base_url,dynamic_url)

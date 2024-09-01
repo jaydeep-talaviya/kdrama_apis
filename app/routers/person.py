@@ -1,7 +1,6 @@
 from fastapi import APIRouter,Query,HTTPException
 from app.tasks import get_all_person_once
 from app.schemas.person import TotalPersonSchema
-from pymongo import ASCENDING,DESCENDING
 from app.dependencies.mongo import get_mongo_db
 from pymongo import ASCENDING,DESCENDING
 from typing import Optional
@@ -95,7 +94,6 @@ def get_person_by_id(person_id:str):
     single_person['written_of_dramas']=written_of_dramas
     single_person['cast_of_movies']=cast_of_movies
     single_person['cast_of_dramas']=cast_of_dramas
-    print(">>>>>>>single_person",single_person)
         
     if not single_person:
         raise HTTPException(status_code=404, detail="No Actor/Actress found")
