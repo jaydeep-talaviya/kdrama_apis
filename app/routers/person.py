@@ -95,6 +95,4 @@ def get_person_by_id(person_id:str):
     single_person['cast_of_movies']=cast_of_movies
     single_person['cast_of_dramas']=cast_of_dramas
         
-    if not single_person:
-        raise HTTPException(status_code=404, detail="No Actor/Actress found")
     return single_person
