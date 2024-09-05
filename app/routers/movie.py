@@ -5,6 +5,7 @@ from pymongo import ASCENDING,DESCENDING
 from app.dependencies.mongo import get_mongo_db
 from bson import ObjectId
 from app.schemas.movie import TotalMovieSchema
+from app.utilities.common_functions import get_person_first_image
 
 db=get_mongo_db()
 
@@ -66,9 +67,7 @@ def get_movies(limit: int = Query(10, gt=0),
 
     
 
-def get_person_first_image(person_id):
-    person_image = db.person_images.find_one({'person_id':person_id},{'image_links':1,"_id":0})
-    return person_image['image_links'][0] if person_image else ""
+
 
 @movie_router.get("/{movie_id}")
 def get_movie_by_id(movie_id:str):
