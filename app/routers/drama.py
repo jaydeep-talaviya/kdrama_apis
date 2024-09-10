@@ -112,6 +112,21 @@ def get_dramas(limit: int = Query(10, gt=0),
     return {"data": dramas,"total_count":db.drama.count_documents(query)}
 
 
+@drama_router.get("/get_random")
+def get_random_kdrama():
+    random_images_of_drama = db.drama.aggregate([{ "$match": 
+            { "airing_dates_start": { "$gt": "2016/12/31" } } },
+            { "$sample": { "size": 20 } },
+            { "$project": { "image_url": 1, "_id": 0 } }])
+    random_images_of_drama = list(map(lambda x:x['image_url'],random_images_of_drama))
+    random_images_of_movie = db.movie.aggregate([{ "$match": 
+            { "airing_date": { "$gt": "2016/12/31" } } },
+            { "$sample": { "size": 20 } },
+            { "$project": { "image_url": 1, "_id": 0 } }])
+    random_images_of_movie = list(map(lambda x:x['image_url'],random_images_of_movie))
+    
+    return {'drama':random_images_of_drama,'movie':random_images_of_movie}
+
 
 @drama_router.get("/{drama_id}")
 def get_drama_by_id(drama_id:str):
@@ -148,3 +163,5 @@ def get_drama_by_id(drama_id:str):
         single_drama['_id'] = str(single_drama['_id'])
     print(single_drama)
     return single_drama
+
+

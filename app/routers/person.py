@@ -27,7 +27,12 @@ def get_all_persons(limit: int = Query(10, gt=0),
     ):
     query = {}
     if search:
-        query = {"tv_channel": {"$regex": search, "$options": "i"}} 
+        query = {
+            "$or": [
+                {"tv_channel": {"$regex": search, "$options": "i"}},
+                {"name": {"$regex": search, "$options": "i"}},
+                {"jobs": {"$regex": search, "$options": "i"}}
+            ]}
     
     sort_direction = ASCENDING if direction == "asc" else DESCENDING
     persons = list(db.person.find(query).sort(order_by, sort_direction).limit(limit).skip(offset))

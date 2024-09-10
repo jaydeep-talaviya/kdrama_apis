@@ -18,7 +18,11 @@ celery_app.conf.update(
 
 
 celery_app.conf.beat_schedule = {
-
+    'Check-Celery-working': {
+        'task': 'print_message',
+        'schedule': crontab(minute="*/1"),
+        'args': ("first celery run")
+    },
     'Get-All-Genres-Daily': {
         'task': 'get_all_genres_everyday',
         'schedule': crontab(hour=22, minute=30),
