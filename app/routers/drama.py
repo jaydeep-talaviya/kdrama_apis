@@ -6,6 +6,7 @@ from typing import List,Optional
 from pymongo import ASCENDING,DESCENDING
 from bson import ObjectId
 from app.utilities.common_functions import get_person_first_image
+from datetime import datetime
 
 db=get_mongo_db()
 
@@ -66,7 +67,11 @@ def get_dramas(limit: int = Query(10, gt=0),
     offset: int = Query(0, ge=0),
     search: Optional[str] = Query(None, min_length=1),
     order_by: Optional[str] = Query("drama_name"),  
-    direction: Optional[str] = Query("asc")
+    direction: Optional[str] = Query("asc"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    genres: Optional[List[str]] = Query(None),
+    tv_channels: Optional[List[str]] = Query(None)
 ):
     query = {}
    
@@ -77,9 +82,49 @@ def get_dramas(limit: int = Query(10, gt=0),
                 {"other_names": {"$regex": search, "$options": "i"}}
             ]
         }
+    print(">>>>>>start_date",start_date,"end_date",end_date,"genres",genres,"tv_channels",tv_channels)
+    # Filter by date range if start_date and end_date are provided
+    date_regex = r"^\d{4}/\d{2}/\d{2}$"
+
+    # Ensure only properly formatted dates are considered
+    query["airing_dates_start"] = {"$regex": date_regex}
+    query["airing_dates_end"] = {"$regex": date_regex}
+
+    # Filter by date range if provided (only for valid formats)
+    if start_date and end_date:
+        try:
+            # Ensure start_date and end_date are properly formatted in "YYYY-MM-DD"
+            start_date_obj = datetime.strptime(start_date, "%Y-%m-%d")
+            end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
+
+            query["$and"] = [
+                {"airing_dates_start": {"$gte": start_date}},
+                {"airing_dates_end": {"$lte": end_date}}
+            ]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format for start_date or end_date")
+
+
+    # Filter by genres
+    if genres:
+        query["_id"] = {
+            "$in": [
+                ObjectId(drama["drama_id"]) for drama in db.drama_extra_info.find(
+                    {"genres": {"$in": [ObjectId(genre) for genre in genres]}},
+                    {"drama_id": 1}
+                )
+            ]
+        }
+        
+
+    # Filter by tv_channels
+    if tv_channels:
+        query["tv_channel_id"] = {"$in": [ObjectId(channel) for channel in tv_channels]}
+
+
+   
     sort_direction = ASCENDING if direction == "asc" else DESCENDING
     dramas = list(db.drama.find(query).sort(order_by, sort_direction).limit(limit).skip(offset))
-    
     for drama in dramas:
         if drama.get('tv_channel_id'):
             tv_channel = db.tv_channel.find_one({'_id':drama.get('tv_channel_id')},{'_id':0})
@@ -105,7 +150,7 @@ def get_dramas(limit: int = Query(10, gt=0),
         drama['tv_channel_id'] = str(drama['tv_channel_id'])
 
         drama['extra_info'] = extra_info
-        print(">drama",drama)
+        #print(">drama",drama)
 
     if not dramas:
         raise HTTPException(status_code=404, detail="No Drama found")
