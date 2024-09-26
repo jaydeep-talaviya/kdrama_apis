@@ -84,11 +84,10 @@ def get_dramas(limit: int = Query(10, gt=0),
         }
     print(">>>>>>start_date",start_date,"end_date",end_date,"genres",genres,"tv_channels",tv_channels)
     # Filter by date range if start_date and end_date are provided
-    date_regex = r"^\d{4}/\d{2}/\d{2}$"
+    date_regex = r"^\d{4}/(0[1-9]|1[0-2])/(0[1-9]|[12]\d|3[01])$"
+    query["airing_dates_start"] = {"$regex": date_regex, "$type": "string"}
+    query["airing_dates_end"] = {"$regex": date_regex, "$type": "string"}
 
-    # Ensure only properly formatted dates are considered
-    query["airing_dates_start"] = {"$regex": date_regex}
-    query["airing_dates_end"] = {"$regex": date_regex}
 
     # Filter by date range if provided (only for valid formats)
     if start_date and end_date:
@@ -97,27 +96,67 @@ def get_dramas(limit: int = Query(10, gt=0),
             start_date_obj = datetime.strptime(start_date, "%Y-%m-%d")
             end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
 
-            query["$and"] = [
-                {"airing_dates_start": {"$gte": start_date}},
-                {"airing_dates_end": {"$lte": end_date}}
-            ]
+            query["$expr"] = {
+                "$and": [
+                    {
+                        "$gte": [
+                            {"$dateFromString": {
+                                "dateString": "$airing_dates_start",
+                                "format": "%Y/%m/%d"
+                            }},
+                            {"$dateFromString": {
+                                "dateString": start_date,
+                                "format": "%Y-%m-%d"
+                            }}
+                        ]
+                    },
+                    {
+                        "$lte": [
+                            {"$dateFromString": {
+                                "dateString": "$airing_dates_end",
+                                "format": "%Y/%m/%d"
+                            }},
+                            {"$dateFromString": {
+                                "dateString": end_date,
+                                "format": "%Y-%m-%d"
+                            }}
+                        ]
+                    }
+                ]
+            }
+
+
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid date format for start_date or end_date")
 
 
     # Filter by genres
+    matching_dramas = list(db.drama.find(query, {"_id": 1}))
+    if not matching_dramas:
+        return {"dramas": [], "total": 0}
+    
+    matching_drama_ids = [drama["_id"] for drama in matching_dramas]
     if genres:
-        query["_id"] = {
-            "$in": [
-                ObjectId(drama["drama_id"]) for drama in db.drama_extra_info.find(
-                    {"genres": {"$in": [ObjectId(genre) for genre in genres]}},
-                    {"drama_id": 1}
-                )
-            ]
+        genre_filter_query = {
+            "genres": {"$in": [ObjectId(single_genre) for single_genre in genres]},
+            "drama_id": {"$in": matching_drama_ids}  # Ensure dramas match the valid date range
         }
-        
+        print(">>>>>>>>>>step 1",genre_filter_query,"\n\n")
 
-    # Filter by tv_channels
+        # Retrieve only the drama_ids that match the genre filter and valid dates
+        filtered_genres = db.drama_extra_info.find(genre_filter_query, {"drama_id": 1})
+
+        # Update the matching drama IDs to include only those with valid genres
+        matching_drama_ids = [drama["drama_id"] for drama in filtered_genres]
+        print(">>>>>>>>>>step 2",matching_drama_ids,"\n\n")
+    # If no dramas match the genres, return an empty result
+    if not matching_drama_ids:
+        return {"dramas": [], "total": 0}
+
+    # Update the query to include only the drama IDs that matched both the date range and genres
+    query["_id"] = {"$in": matching_drama_ids}
+
+    # Apply TV channel filter if provided
     if tv_channels:
         query["tv_channel_id"] = {"$in": [ObjectId(channel) for channel in tv_channels]}
 
@@ -125,6 +164,7 @@ def get_dramas(limit: int = Query(10, gt=0),
    
     sort_direction = ASCENDING if direction == "asc" else DESCENDING
     dramas = list(db.drama.find(query).sort(order_by, sort_direction).limit(limit).skip(offset))
+    print(">>>>drama",dramas)
     for drama in dramas:
         if drama.get('tv_channel_id'):
             tv_channel = db.tv_channel.find_one({'_id':drama.get('tv_channel_id')},{'_id':0})
