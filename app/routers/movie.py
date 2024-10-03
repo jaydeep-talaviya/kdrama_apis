@@ -19,6 +19,16 @@ def create_all_movie_at_once():
     task = get_all_movie_once.delay()
     return {"message":"All K-Movie fetching has been started!"}
 
+@movie_router.get("/jobs")
+def get_all_jobs():
+    total_jobs = db.person.aggregate([
+    { "$unwind": "$jobs" },   # Deconstructs the jobs array
+    { "$group": { "_id": None, "jobs": { "$addToSet": "$jobs" } } },  # Groups and accumulates unique jobs
+    { "$project": { "_id": 0, "jobs": 1 } }  # Projects only the jobs field
+    ])
+    return {"data":list(total_jobs),'total_count':len(list(total_jobs))}
+
+
 @movie_router.get("/",response_model=TotalMovieSchema)
 def get_movies(limit: int = Query(10, gt=0), 
     offset: int = Query(0, ge=0),
