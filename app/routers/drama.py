@@ -141,14 +141,12 @@ def get_dramas(limit: int = Query(10, gt=0),
             "genres": {"$in": [ObjectId(single_genre) for single_genre in genres]},
             "drama_id": {"$in": matching_drama_ids}  # Ensure dramas match the valid date range
         }
-        print(">>>>>>>>>>step 1",genre_filter_query,"\n\n")
 
         # Retrieve only the drama_ids that match the genre filter and valid dates
         filtered_genres = db.drama_extra_info.find(genre_filter_query, {"drama_id": 1})
 
         # Update the matching drama IDs to include only those with valid genres
         matching_drama_ids = [drama["drama_id"] for drama in filtered_genres]
-        print(">>>>>>>>>>step 2",matching_drama_ids,"\n\n")
     # If no dramas match the genres, return an empty result
     if not matching_drama_ids:
         return {"dramas": [], "total": 0}

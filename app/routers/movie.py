@@ -1,11 +1,12 @@
 from fastapi import APIRouter,Query,HTTPException
 from app.tasks import get_all_movie_once
-from typing import Optional
+from typing import Optional,List
 from pymongo import ASCENDING,DESCENDING
 from app.dependencies.mongo import get_mongo_db
 from bson import ObjectId
 from app.schemas.movie import TotalMovieSchema
 from app.utilities.common_functions import get_person_first_image
+from datetime import datetime
 
 db=get_mongo_db()
 
@@ -34,20 +35,72 @@ def get_movies(limit: int = Query(10, gt=0),
     offset: int = Query(0, ge=0),
     search: Optional[str] = Query(None, min_length=1),
     order_by: Optional[str] = Query("movie_name"),  
-    direction: Optional[str] = Query("asc")
+    direction: Optional[str] = Query("asc"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    genres: Optional[List[str]] = Query(None),
+
 ):
     query = {}
    
     if search:
-         query = {
+        query = {
             "$or": [
                 {"movie_name": {"$regex": search, "$options": "i"}},
                 {"other_names": {"$regex": search, "$options": "i"}}
             ]
         }
+    
+
+
+    # Exclude records with null or missing airing_date and validate date format
+    query["airing_date"] = {
+        "$exists": True,  # Ensure airing_date exists
+        "$ne": None,      # Exclude records where airing_date is null
+        "$regex": r"^\d{4}[/\-]\d{2}[/\-]\d{2}$"  # Match 'YYYY/MM/DD' or 'YYYY-MM-DD'
+    }
+
+    if start_date and end_date:
+        try:
+            # start_dt = parse_date(start_date)
+            # end_dt = parse_date(end_date)
+            print("...start_dt",start_date,"...end_dt",end_date)
+            query["airing_date"]["$gte"] = start_date
+            query["airing_date"]["$lte"] = end_date
+        except ValueError as e:
+            print(">>>e",e)
+            raise HTTPException(status_code=400, detail=str(e))
+
+    # Filter by genres
+    matching_movies = list(db.movie.find(query, {"_id": 1}))
+    if not matching_movies:
+        return {"movies": [], "total": 0}
+    
+    matching_movie_ids = [movie["_id"] for movie in matching_movies]
+    if genres:
+        genre_filter_query = {
+            "genres": {"$in": [ObjectId(single_genre) for single_genre in genres]},
+            "movie_id": {"$in": matching_movie_ids}  # Ensure movies match the valid date range
+        }
+
+        # Retrieve only the drama_ids that match the genre filter and valid dates
+        filtered_genres = db.movie_extra_info.find(genre_filter_query, {"movie_id": 1})
+
+        # Update the matching drama IDs to include only those with valid genres
+        matching_movie_ids = [movie["movie_id"] for movie in filtered_genres]
+    # If no dramas match the genres, return an empty result
+    if not matching_movie_ids:
+        return {"movies": [], "total": 0}
+
+    # Update the query to include only the drama IDs that matched both the date range and genres
+    query["_id"] = {"$in": matching_movie_ids}
+
+
+    print(">>>>>query",query)
+
     sort_direction = ASCENDING if direction == "asc" else DESCENDING
     movies = list(db.movie.find(query).sort(order_by, sort_direction).limit(limit).skip(offset))
-    
+    # print(">>>>>movies",movies)
     for movie in movies:
         # extra info
         extra_info = db.movie_extra_info.find_one({"movie_id":movie['_id']},{"_id":0,"movie_id":0,"images":0})
@@ -66,11 +119,10 @@ def get_movies(limit: int = Query(10, gt=0),
             extra_info['casts_info'] = casts
             extra_info.pop("casts_ids",None)
             extra_info.pop("other_cast_info",None)
+        movie["_id"] = str(movie["_id"])
         movie['extra_info'] = extra_info
-        print(">movie",movie)
+        # print(">movie",movie)
 
-    for item in movies:
-        item["_id"] = str(item["_id"])
     if not movies:
         raise HTTPException(status_code=404, detail="No Movie found")
     return {"data": movies,"total_count":db.movie.count_documents(query)}
