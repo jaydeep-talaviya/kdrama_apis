@@ -240,10 +240,12 @@ def get_drama_by_id(drama_id:str):
         other_casts = list(map(lambda x:{**x,"_id":str(x['_id']),"image":get_person_first_image(x['_id'])},db.person.find({'_id':{"$in":cast_of_drama}},{"_id":1,"name":1})))
         extra_info['casts_info']+= other_casts
         extra_info.pop("other_cast_info",None)
-        single_drama['extra_info'] = extra_info
-        single_drama['tv_channel_id'] = str(single_drama['tv_channel_id'])
+        extra_info['casts_info'] = list({cast['_id']: cast for cast in extra_info['casts_info']}.values())
+    single_drama['extra_info'] = extra_info
+    
+    single_drama['tv_channel_id'] = str(single_drama['tv_channel_id'])
 
-        single_drama['_id'] = str(single_drama['_id'])
+    single_drama['_id'] = str(single_drama['_id'])
     print(single_drama)
     return single_drama
 
