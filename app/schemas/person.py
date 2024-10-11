@@ -7,6 +7,7 @@ class PersonSchema(BaseCommon):
     gender: str
     jobs:List[str]
     other_names:str
+    person_image:Optional[str]=None
     birth_of_date:Optional[str]=None
 
 class TotalPersonSchema(BaseModel):

@@ -3,7 +3,7 @@ from app.tasks import get_all_person_once
 from app.schemas.person import TotalPersonSchema
 from app.dependencies.mongo import get_mongo_db
 from pymongo import ASCENDING,DESCENDING
-from typing import Optional
+from typing import Optional,List
 from bson import ObjectId
 
 db=get_mongo_db()
@@ -18,13 +18,18 @@ def create_all_person_at_once():
     task = get_all_person_once.delay()
     return {"message":"All Kdrama fetching has been started!"}
 
-@person_router.get("/",response_model=TotalPersonSchema)
+from fastapi import Query, HTTPException
+from pymongo import ASCENDING, DESCENDING
+from bson import ObjectId
+
+@person_router.get("/", response_model=TotalPersonSchema)
 def get_all_persons(limit: int = Query(10, gt=0), 
-    offset: int = Query(0, ge=0),
-    search: Optional[str] = Query(None, min_length=1),
-    order_by: Optional[str] = Query("tv_channel"),  
-    direction: Optional[str] = Query("asc")  # Default direction is ascending
-    ):
+                    offset: int = Query(0, ge=0),
+                    search: Optional[str] = Query(None, min_length=1),
+                    order_by: Optional[str] = Query("birth_of_date"),  
+                    direction: Optional[str] = Query("desc"),
+                    jobs: Optional[List[str]] = Query(None),
+                    ):
     query = {}
     if search:
         query = {
@@ -32,15 +37,27 @@ def get_all_persons(limit: int = Query(10, gt=0),
                 {"tv_channel": {"$regex": search, "$options": "i"}},
                 {"name": {"$regex": search, "$options": "i"}},
                 {"jobs": {"$regex": search, "$options": "i"}}
-            ]}
+            ]
+        }
+    # Jobs filter using $in operator
+    if jobs:
+        query["jobs"] = {"$in": jobs}
     
     sort_direction = ASCENDING if direction == "asc" else DESCENDING
     persons = list(db.person.find(query).sort(order_by, sort_direction).limit(limit).skip(offset))
-    for item in persons:
-        item["_id"] = str(item["_id"])
+    
+    for person in persons:
+        person["_id"] = str(person["_id"])
+        # Fetch the person's image from person_images collection
+        person_image_doc = db.person_images.find_one({"person_id": ObjectId(person["_id"])})
+
+        if person_image_doc and "image_links" in person_image_doc:
+            person["person_image"] = person_image_doc["image_links"][0]  # Assuming the first image link
+
     if not persons:
         raise HTTPException(status_code=404, detail="No Actor/Actress found")
-    return {"data": persons,"total_count":db.person.count_documents(query)}
+    
+    return {"data": persons, "total_count": db.person.count_documents(query)}
 
 
 
